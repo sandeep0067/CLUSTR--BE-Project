@@ -63,7 +63,8 @@ A fair, community-driven ecosystem.
 ### 1️⃣ Clone the repository
 
 ```
-git clone https://github.com/yourusername/clustr.git
+git clone https://github.com/sandeep0067/CLUSTR--BE-Project.git
+
 ```
 
 ### 2️⃣ Open project folder
