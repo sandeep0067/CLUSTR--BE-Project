@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Serif+Pro:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  * {
+    font-feature-settings: "kern", "liga", "calt";
+  }
+  
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-variation-settings: "slnt" 0;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Source Serif Pro', 'Inter', serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  
+  code, pre {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  }
+}
+
+@layer utilities {
+  .font-premium {
+    font-family: 'Source Serif Pro', 'Inter', serif;
+  }
+  
+  .font-clean {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  .font-mono {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  }
+}
