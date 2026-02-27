@@ -1,0 +1,784 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Home, Compass, User as UserIcon, MessageSquare, Bell, 
+  Bookmark, Settings, LogOut, Heart, MessageCircle, Share2, 
+  Plus, Moon, Sun, X, Image as ImageIcon, Hash, CheckCircle,
+  Menu, MoreHorizontal, Video, FileText, Search, Briefcase,
+  Activity, MonitorPlay, Zap
+} from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+  getFirestore, collection, doc, setDoc, getDoc, onSnapshot, 
+  addDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove 
+} from 'firebase/firestore';
+
+// --- Firebase Initialization ---
+const firebaseConfig = {
+  apiKey: "AIzaSyAo3raKnYPD1rNrIZvdGhyIZ9B5VtwOGI",
+  authDomain: "clustr-42f09.firebaseapp.com",
+  projectId: "clustr-42f09",
+  storageBucket: "clustr-42f09.firebasestorage.app",
+  messagingSenderId: "60199926512",
+  appId: "1:60199926512:web:7b69635465460bfddb6035",
+  measurementId: "G-5NRSRVYC1Y"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = 'clustr_app_v1';
+
+// --- Main Application Component ---
+export default function SkillNet() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [darkMode, setDarkMode] = useState(false); // Default to light mode for the cream theme
+  const [currentView, setCurrentView] = useState('home'); 
+  
+  // Data States
+  const [posts, setPosts] = useState([]);
+  const [usersInfo, setUsersInfo] = useState({}); 
+  
+  // Initialize Auth
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+          await signInAnonymously(auth);
+      } catch (error) {
+        console.error("Auth Error:", error);
+      }
+    };
+    initAuth();
+
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists()) {
+          await setDoc(userRef, {
+            uid: currentUser.uid,
+            displayName: currentUser.displayName || `User_${currentUser.uid.substring(0, 4)}`,
+            photoURL: currentUser.photoURL || `https://i.pravatar.cc/150?u=${currentUser.uid}`,
+            skills: ['React', 'Design', 'Product'],
+            role: 'Product Designer',
+            bio: 'Exploring ideas and building beautiful digital experiences.',
+            joinedAt: Date.now()
+          });
+        }
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch Posts & Users
+  useEffect(() => {
+    if (!user) return;
+
+    const usersRef = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+    const unsubscribeUsers = onSnapshot(usersRef, (snapshot) => {
+      const usersMap = {};
+      snapshot.docs.forEach(doc => {
+        usersMap[doc.id] = doc.data();
+      });
+      setUsersInfo(usersMap);
+    }, (err) => console.error("Users fetch error:", err));
+
+    const postsRef = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
+    const unsubscribePosts = onSnapshot(postsRef, (snapshot) => {
+      const postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      postsData.sort((a, b) => b.createdAt - a.createdAt);
+      
+      if (postsData.length === 0 && user) {
+        seedInitialPosts(user.uid);
+      } else {
+        setPosts(postsData);
+      }
+    }, (err) => console.error("Posts fetch error:", err));
+
+    return () => {
+      unsubscribeUsers();
+      unsubscribePosts();
+    };
+  }, [user]);
+
+  const seedInitialPosts = async (uid) => {
+    const defaultPosts = [
+      {
+        authorId: uid,
+        content: "Just finished refactoring our core components using React Server Components. The performance gains are incredible! Here's a snippet of the new pattern we're using. Would love to hear your thoughts on this approach. 👇",
+        skills: ['React', 'Performance', 'WebDev'],
+        imageUrl: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80",
+        likes: [],
+        comments: [],
+        createdAt: Date.now() - 100000
+      },
+      {
+        authorId: 'system_user', 
+        content: "Understanding Express.js middleware is crucial for building robust APIs. Always remember the req -> middleware -> res lifecycle!",
+        skills: ['Express', 'Backend', 'API'],
+        likes: ['some_user_id'],
+        comments: [],
+        createdAt: Date.now() - 500000
+      }
+    ];
+    for (const post of defaultPosts) {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), post);
+    }
+  };
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#FCFAF8] dark:bg-stone-950">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500"></div>
+    </div>
+  );
+
+  return (
+    <div className={`min-h-screen transition-colors duration-200 font-sans ${darkMode ? 'dark bg-stone-950 text-stone-100' : 'bg-[#FCFAF8] text-stone-900'}`}>
+      <div className="max-w-[1300px] mx-auto flex justify-center gap-6 px-4 relative selection:bg-orange-500/30 selection:text-orange-800 dark:selection:text-orange-200">
+        
+        {/* Left Sidebar (Navigation) */}
+        <SidebarLeft 
+          currentView={currentView} 
+          setCurrentView={setCurrentView} 
+          darkMode={darkMode} 
+          setDarkMode={setDarkMode} 
+        />
+
+        {/* Main Content Area */}
+        <main className="flex-1 max-w-[650px] w-full min-h-screen pb-20 md:pb-0 pt-4">
+          
+          {/* Top Search Bar (Desktop) */}
+          <div className="hidden md:flex relative mb-6">
+             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-600 dark:text-orange-500" />
+             <input 
+               type="text" 
+               placeholder="Search projects, jobs, or people..." 
+               className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl py-3.5 pl-12 pr-4 shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none text-sm text-stone-900 dark:text-stone-100 transition-all placeholder-stone-400"
+             />
+          </div>
+
+          {/* Mobile Header */}
+          <div className="md:hidden sticky top-0 z-40 bg-[#FCFAF8]/90 dark:bg-stone-950/90 backdrop-blur-md border-b border-stone-200 dark:border-stone-800 p-4 mb-4 flex justify-between items-center rounded-b-2xl shadow-sm">
+            <h1 className="text-xl font-bold text-orange-600 dark:text-orange-500 tracking-tight flex items-center gap-2">
+              <Zap size={20} className="fill-orange-600 dark:fill-orange-500"/> CLUSTR
+            </h1>
+            <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-xl hover:bg-stone-200 dark:hover:bg-stone-800 text-orange-600 dark:text-orange-500">
+              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+          </div>
+
+          {/* Router Views */}
+          {currentView === 'home' && (
+            <>
+              <CreatePost user={user} usersInfo={usersInfo} />
+              <Feed posts={posts} user={user} usersInfo={usersInfo} />
+            </>
+          )}
+          
+          {currentView === 'profile' && (
+            <ProfileView user={user} usersInfo={usersInfo} posts={posts} />
+          )}
+
+          {currentView === 'explore' && (
+            <ExploreView />
+          )}
+        </main>
+
+        {/* Right Sidebar (Widgets) */}
+        <SidebarRight usersInfo={usersInfo} currentUser={user} />
+
+        {/* Mobile Bottom Navigation */}
+        <MobileNav currentView={currentView} setCurrentView={setCurrentView} />
+      </div>
+    </div>
+  );
+}
+
+// --- Components ---
+
+function SidebarLeft({ currentView, setCurrentView, darkMode, setDarkMode }) {
+  const mainNav = [
+    { id: 'home', label: 'Home', icon: Home },
+    { id: 'explore', label: 'Projects', icon: Compass },
+    { id: 'messages', label: 'Inbox', icon: MessageSquare },
+  ];
+
+  const oppNav = [
+    { id: 'recommended', label: 'Recommended', icon: Bell },
+    { id: 'bookmarks', label: 'Saved', icon: Bookmark },
+    { id: 'profile', label: 'My Profile', icon: UserIcon },
+  ];
+
+  const groupNav = [
+    { id: 'settings', label: 'Settings', icon: Settings },
+  ];
+
+  const renderNav = (items) => (
+    <div className="space-y-1.5">
+      {items.map((item) => {
+        const Icon = item.icon;
+        const isActive = currentView === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => setCurrentView(item.id)}
+            className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-200 group font-medium ${
+              isActive 
+                ? 'bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 shadow-[inset_0_0_0_1px_rgba(249,115,22,0.3)]' 
+                : 'hover:bg-stone-200/50 dark:hover:bg-stone-800/50 text-stone-500 dark:text-stone-400 hover:text-orange-600 dark:hover:text-orange-400'
+            }`}
+          >
+            <Icon size={20} className={isActive ? 'stroke-[2.5px]' : 'stroke-[2px] group-hover:text-orange-500 dark:group-hover:text-orange-400 transition-colors'} />
+            <span className="text-[15px]">{item.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <aside className="hidden md:flex flex-col w-[260px] h-screen sticky top-0 pt-6 pb-8">
+      <div className="flex items-center gap-3 px-4 mb-8">
+        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-xl shadow-[0_4px_15px_rgba(249,115,22,0.3)]">
+          <Zap size={22} className="fill-white" />
+        </div>
+        <span className="text-2xl font-extrabold tracking-tight text-orange-600 dark:text-orange-500">CLUSTR</span>
+      </div>
+
+      <nav className="flex-1 overflow-y-auto pr-2 scrollbar-hide space-y-8">
+        <div>
+          <h4 className="text-[12px] font-bold text-stone-400 dark:text-stone-500 mb-3 px-4 uppercase tracking-wider">Main</h4>
+          {renderNav(mainNav)}
+        </div>
+        
+        <div>
+          <h4 className="text-[12px] font-bold text-stone-400 dark:text-stone-500 mb-3 px-4 uppercase tracking-wider">Opportunities</h4>
+          {renderNav(oppNav)}
+        </div>
+
+        <div>
+          <h4 className="text-[12px] font-bold text-stone-400 dark:text-stone-500 mb-3 px-4 uppercase tracking-wider">System</h4>
+          {renderNav(groupNav)}
+        </div>
+      </nav>
+
+      <div className="mt-auto space-y-2 pt-6">
+        <button className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl hover:bg-stone-200/50 dark:hover:bg-stone-800/50 text-stone-500 dark:text-stone-400 hover:text-red-500 dark:hover:text-red-400 transition-colors font-medium">
+          <LogOut size={20} />
+          <span className="text-[15px]">Logout</span>
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function MobileNav({ currentView, setCurrentView }) {
+  return (
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800 flex justify-around items-center p-3 z-50 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+      <button onClick={() => setCurrentView('home')} className={`p-3 rounded-2xl transition-colors ${currentView === 'home' ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-500/10' : 'text-stone-400'}`}>
+        <Home size={22} className={currentView === 'home' ? 'fill-current' : ''} />
+      </button>
+      <button onClick={() => setCurrentView('explore')} className={`p-3 rounded-2xl transition-colors ${currentView === 'explore' ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-500/10' : 'text-stone-400'}`}>
+        <Compass size={22} />
+      </button>
+      <button onClick={() => setCurrentView('profile')} className={`p-3 rounded-2xl transition-colors ${currentView === 'profile' ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-500/10' : 'text-stone-400'}`}>
+        <UserIcon size={22} />
+      </button>
+    </nav>
+  );
+}
+
+function SidebarRight({ usersInfo, currentUser }) {
+  const stories = [
+    { id: 1, name: 'Alice', avatar: 'https://i.pravatar.cc/150?u=alice', bg: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80' },
+    { id: 2, name: 'Bob', avatar: 'https://i.pravatar.cc/150?u=bob', bg: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=300&q=80' },
+    { id: 3, name: 'Eve', avatar: 'https://i.pravatar.cc/150?u=eve', bg: 'https://images.unsplash.com/photo-1618044733300-9472054094ee?auto=format&fit=crop&w=300&q=80' },
+    { id: 4, name: 'David', avatar: 'https://i.pravatar.cc/150?u=admin', bg: 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=300&q=80' },
+  ];
+
+  const watchlist = [
+    { id: 1, title: 'Building Fluid UIs with Framer Motion', author: 'DesignOps', timeAgo: '2 days ago', duration: '14:20', thumb: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=300&q=80' },
+    { id: 2, title: 'The Future of Serverless React', author: 'Vercel Team', timeAgo: '5 days ago', duration: '45:12', thumb: 'https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?auto=format&fit=crop&w=300&q=80' },
+    { id: 3, title: 'Designing for Accessibility', author: 'A11y Project', timeAgo: '1 week ago', duration: '22:05', thumb: 'https://images.unsplash.com/photo-1563206767-5b18f218e8de?auto=format&fit=crop&w=300&q=80' },
+  ];
+
+  const popularCommunities = [
+    { id: 1, name: 'c/WebDesign', members: '6,964,945', icon: 'https://api.dicebear.com/7.x/shapes/svg?seed=design' },
+    { id: 2, name: 'c/ReactJS', members: '8,614,253', icon: 'https://api.dicebear.com/7.x/shapes/svg?seed=react' },
+    { id: 3, name: 'c/UIUX', members: '12,475,541', icon: 'https://api.dicebear.com/7.x/shapes/svg?seed=uiux' },
+    { id: 4, name: 'c/Startups', members: '4,222,183', icon: 'https://api.dicebear.com/7.x/shapes/svg?seed=startup' },
+    { id: 5, name: 'c/Creative', members: '26,796,461', icon: 'https://api.dicebear.com/7.x/shapes/svg?seed=creative' },
+  ];
+
+  const currentUserData = currentUser ? usersInfo[currentUser.uid] : null;
+
+  return (
+    <aside className="hidden lg:block w-[320px] h-screen sticky top-0 pt-6 overflow-y-auto scrollbar-hide pb-10">
+      
+      {/* Stories */}
+      <div className="bg-white dark:bg-stone-900 rounded-3xl p-5 mb-6 border border-stone-200 dark:border-stone-800 shadow-sm">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-bold text-[15px] text-stone-900 dark:text-stone-100 flex items-center gap-2">
+            <Activity size={18} className="text-orange-600 dark:text-orange-500"/> Stories
+          </h3>
+          <button className="text-[12px] font-medium text-orange-600 dark:text-orange-500 hover:text-orange-700 dark:hover:text-orange-400 transition-colors">See all</button>
+        </div>
+        
+        <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 snap-x">
+          {stories.map(story => (
+            <div key={story.id} className="relative w-[100px] h-[150px] rounded-2xl flex-shrink-0 overflow-hidden group cursor-pointer border border-stone-200 dark:border-stone-800 shadow-sm snap-start">
+              <img src={story.bg} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-90" alt="story bg" />
+              <div className="absolute inset-0 bg-gradient-to-t from-stone-900/90 via-stone-900/20 to-transparent"></div>
+              
+              <div className="absolute bottom-3 left-0 right-0 flex flex-col items-center">
+                <img src={story.avatar} className="w-10 h-10 rounded-full border-2 border-orange-500 mb-2 object-cover bg-white dark:bg-stone-900 shadow-lg" alt={story.name} />
+                <span className="text-[12px] font-semibold text-white truncate w-full text-center px-2 drop-shadow-md">{story.name}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Watchlist */}
+      <div className="bg-white dark:bg-stone-900 rounded-3xl p-5 mb-6 border border-stone-200 dark:border-stone-800 shadow-sm">
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="font-bold text-[15px] text-stone-900 dark:text-stone-100 flex items-center gap-2">
+            <MonitorPlay size={18} className="text-orange-600 dark:text-orange-500"/> Watchlist
+          </h3>
+          <button className="text-[12px] font-medium text-orange-600 dark:text-orange-500 hover:text-orange-700 dark:hover:text-orange-400 transition-colors">See all</button>
+        </div>
+
+        <div className="space-y-4">
+          {watchlist.map(video => (
+            <div key={video.id} className="flex gap-3 group cursor-pointer">
+              <div className="relative w-[110px] h-[70px] rounded-xl overflow-hidden flex-shrink-0 shadow-sm group-hover:shadow-md transition-shadow">
+                <img src={video.thumb} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90" alt="thumb" />
+                <div className="absolute bottom-1 right-1 bg-stone-900/80 backdrop-blur-sm px-1.5 py-0.5 rounded-md flex items-center justify-center">
+                  <span className="text-[10px] font-medium text-white">{video.duration}</span>
+                </div>
+              </div>
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <h4 className="text-[13px] font-bold text-stone-800 dark:text-stone-200 group-hover:text-orange-600 dark:group-hover:text-orange-400 line-clamp-2 leading-tight mb-1 transition-colors">{video.title}</h4>
+                <p className="text-[12px] text-stone-500 dark:text-stone-400 truncate">{video.author}</p>
+                <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-0.5">{video.timeAgo}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Popular Communities */}
+      <div className="bg-white dark:bg-stone-900 rounded-3xl p-5 mb-6 border border-stone-200 dark:border-stone-800 shadow-sm">
+        <h3 className="font-bold text-[15px] text-stone-900 dark:text-stone-100 mb-5 flex items-center gap-2">
+           <Hash size={18} className="text-orange-600 dark:text-orange-500"/> Popular Communities
+        </h3>
+        <div className="space-y-4">
+          {popularCommunities.map(community => (
+            <div key={community.id} className="flex items-center gap-3 group cursor-pointer">
+              <img src={community.icon} alt={community.name} className="w-10 h-10 rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 p-1.5 group-hover:bg-stone-200 dark:group-hover:bg-stone-700 transition-colors" />
+              <div className="flex-1 min-w-0">
+                <h4 className="text-[14px] font-bold text-stone-800 dark:text-stone-200 group-hover:text-orange-600 dark:group-hover:text-orange-400 truncate transition-colors">{community.name}</h4>
+                <p className="text-[12px] text-stone-500 dark:text-stone-400 truncate mt-0.5">{community.members} members</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button className="mt-5 w-full py-2 bg-stone-100 dark:bg-stone-800 text-[13px] font-semibold text-stone-700 dark:text-stone-300 rounded-xl hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors">
+          Explore more
+        </button>
+      </div>
+
+    </aside>
+  );
+}
+
+function CreatePost({ user, usersInfo }) {
+  const [content, setContent] = useState('');
+  const [mediaUrl, setMediaUrl] = useState('');
+  const [showMediaInput, setShowMediaInput] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const currentUserData = usersInfo[user?.uid] || {};
+
+  const handlePost = async () => {
+    if (!content.trim() && !mediaUrl.trim()) return;
+    setIsPublishing(true);
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), {
+        authorId: user.uid,
+        content,
+        mediaUrl: mediaUrl.trim(),
+        likes: [],
+        comments: [],
+        createdAt: Date.now()
+      });
+      setContent('');
+      setMediaUrl('');
+      setShowMediaInput(false);
+    } catch (error) {
+      console.error("Error creating post", error);
+    }
+    setIsPublishing(false);
+  };
+
+  return (
+    <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-5 mb-6 shadow-sm">
+      <div className="flex gap-4 mb-3">
+        <img 
+          src={currentUserData.photoURL || `https://i.pravatar.cc/150?u=${user?.uid}`} 
+          alt="Avatar" 
+          className="w-11 h-11 rounded-full border border-stone-200 dark:border-stone-700 flex-shrink-0 object-cover shadow-sm bg-stone-100 dark:bg-stone-800"
+        />
+        <div className="flex-1">
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Share what you're working on or thinking about..."
+            className="w-full bg-transparent border-none resize-none outline-none text-[16px] min-h-[50px] text-stone-900 dark:text-stone-100 placeholder-stone-400 mt-2"
+          />
+        </div>
+      </div>
+
+      {showMediaInput && (
+        <div className="mb-4 px-14">
+          <input 
+            type="text" 
+            value={mediaUrl}
+            onChange={(e) => setMediaUrl(e.target.value)}
+            placeholder="Paste Image or Video URL..."
+            className="w-full bg-[#FCFAF8] dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all text-stone-900 dark:text-stone-100 placeholder-stone-400"
+          />
+        </div>
+      )}
+
+      <div className="flex justify-between items-center pl-14 pr-2 pt-3 border-t border-stone-100 dark:border-stone-800/80">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <button 
+            onClick={() => setShowMediaInput(!showMediaInput)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors text-orange-600 dark:text-orange-400"
+          >
+            <Video size={18} /> <span className="text-[13px] font-semibold hidden sm:inline text-stone-600 dark:text-stone-300">Video</span>
+          </button>
+          <button 
+            onClick={() => setShowMediaInput(!showMediaInput)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors text-orange-600 dark:text-orange-400"
+          >
+            <ImageIcon size={18} /> <span className="text-[13px] font-semibold hidden sm:inline text-stone-600 dark:text-stone-300">Photo</span>
+          </button>
+          <button 
+            className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors text-orange-600 dark:text-orange-400"
+          >
+            <FileText size={18} /> <span className="text-[13px] font-semibold hidden sm:inline text-stone-600 dark:text-stone-300">Article</span>
+          </button>
+        </div>
+        
+        <button 
+          onClick={handlePost}
+          disabled={isPublishing || (!content.trim() && !mediaUrl.trim())}
+          className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-xl font-semibold text-[14px] transition-colors shadow-sm disabled:opacity-50 disabled:hover:bg-orange-600"
+        >
+          {isPublishing ? 'Posting...' : 'Post'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Feed({ posts, user, usersInfo }) {
+  if (posts.length === 0) {
+    return <div className="p-8 text-center text-stone-500 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800">No content available. Be the first to share!</div>;
+  }
+
+  return (
+    <div className="pb-10 space-y-6">
+      {posts.map(post => (
+        <PostCard key={post.id} post={post} user={user} usersInfo={usersInfo} />
+      ))}
+    </div>
+  );
+}
+
+function PostCard({ post, user, usersInfo }) {
+  const author = usersInfo[post.authorId] || { 
+    displayName: 'Unknown User', 
+    role: 'Member',
+    photoURL: `https://i.pravatar.cc/150?u=${post.authorId}`,
+    skills: []
+  };
+  
+  const isLiked = post.likes?.includes(user?.uid);
+  const media = post.mediaUrl || post.imageUrl;
+  const isVideo = media && media.match(/\.(mp4|webm|ogg)$/i);
+
+  const timeAgo = (timestamp) => {
+    const diff = Date.now() - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (minutes > 0) return `${minutes}m ago`;
+    return 'Just now';
+  };
+
+  const handleLike = async () => {
+    if (!user) return;
+    const postRef = doc(db, 'artifacts', appId, 'public', 'data', 'posts', post.id);
+    try {
+      if (isLiked) {
+        await updateDoc(postRef, { likes: arrayRemove(user.uid) });
+      } else {
+        await updateDoc(postRef, { likes: arrayUnion(user.uid) });
+      }
+    } catch (err) {
+      console.error("Like error", err);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-5 shadow-sm hover:shadow-md hover:shadow-stone-200/50 dark:hover:shadow-stone-950/50 transition-shadow">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-4">
+        <img src={author.photoURL} alt={author.displayName} className="w-12 h-12 rounded-full object-cover border border-stone-200 dark:border-stone-700 shadow-sm bg-stone-100 dark:bg-stone-800" />
+        
+        <div className="flex-1">
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-[16px] text-stone-900 dark:text-stone-100 hover:text-orange-600 dark:hover:text-orange-500 transition-colors cursor-pointer">{author.displayName}</span>
+                {author.verified && <CheckCircle size={14} className="text-orange-500" />}
+              </div>
+              <div className="text-[13px] text-stone-500 dark:text-stone-400 mt-0.5">{author.role || author.skills?.[0] || 'Software Engineer'}</div>
+              <div className="text-[12px] text-stone-400 dark:text-stone-500 mt-0.5">{timeAgo(post.createdAt)}</div>
+            </div>
+            <button className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 transition-colors p-2 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800">
+              <MoreHorizontal size={20} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="mb-4">
+        <p className="text-[15px] text-stone-800 dark:text-stone-200 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+        
+        {/* Skills */}
+        {post.skills && post.skills.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {post.skills.map(skill => (
+              <span key={skill} className="text-orange-600 dark:text-orange-400 font-medium text-[13px] hover:underline cursor-pointer">
+                #{skill}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Media */}
+      {media && (
+        <div className="mb-4 rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-950 shadow-sm">
+          {isVideo ? (
+            <video src={media} controls className="w-full h-auto object-cover max-h-[500px]" />
+          ) : (
+            <img src={media} alt="Post media" className="w-full h-auto object-cover max-h-[500px]" />
+          )}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center justify-between pt-3 text-stone-500 dark:text-stone-400 border-t border-stone-100 dark:border-stone-800/80">
+        <div className="flex gap-2 sm:gap-6">
+          <button 
+            onClick={handleLike}
+            className={`flex items-center gap-2 group transition-colors px-3 py-2 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-500/10 hover:text-orange-600 dark:hover:text-orange-500 ${isLiked ? 'text-orange-600 dark:text-orange-500' : ''}`}
+          >
+            <Heart size={20} className={isLiked ? 'fill-current' : ''} />
+            <span className="text-[14px] font-medium">{post.likes?.length || 0}</span>
+          </button>
+          
+          <button className="flex items-center gap-2 group transition-colors px-3 py-2 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-500/10 hover:text-orange-600 dark:hover:text-orange-500">
+            <MessageCircle size={20} />
+            <span className="text-[14px] font-medium">{post.comments?.length || 0}</span>
+          </button>
+          
+          <button className="flex items-center gap-2 group transition-colors px-3 py-2 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-500/10 hover:text-orange-600 dark:hover:text-orange-500">
+            <Share2 size={20} />
+            <span className="hidden sm:inline text-[14px] font-medium">Share</span>
+          </button>
+        </div>
+
+        <button className="flex items-center gap-2 group transition-colors px-3 py-2 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-500/10 hover:text-orange-600 dark:hover:text-orange-500">
+          <Bookmark size={20} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ProfileView({ user, usersInfo, posts }) {
+  const [editing, setEditing] = useState(false);
+  const [bio, setBio] = useState('');
+  const [role, setRole] = useState('');
+  const [newSkill, setNewSkill] = useState('');
+  
+  const currentUserData = usersInfo[user?.uid] || {};
+  const userPosts = posts.filter(p => p.authorId === user?.uid);
+
+  useEffect(() => {
+    if (currentUserData.bio) setBio(currentUserData.bio);
+    if (currentUserData.role) setRole(currentUserData.role);
+  }, [currentUserData]);
+
+  const saveProfile = async () => {
+    const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
+    await updateDoc(userRef, { bio, role });
+    setEditing(false);
+  };
+
+  const addProfileSkill = async () => {
+    if (!newSkill.trim()) return;
+    const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
+    await updateDoc(userRef, { skills: arrayUnion(newSkill.trim()) });
+    setNewSkill('');
+  };
+
+  const removeProfileSkill = async (skillToRemove) => {
+    const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
+    await updateDoc(userRef, { skills: arrayRemove(skillToRemove) });
+  };
+
+  return (
+    <div className="pb-10 min-h-screen">
+      {/* Cover Image */}
+      <div className="h-40 md:h-56 rounded-t-3xl bg-gradient-to-r from-orange-700 via-orange-500 to-orange-400 relative overflow-hidden shadow-sm">
+        <div className="absolute inset-0 opacity-10 mix-blend-overlay bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+      </div>
+      
+      {/* Profile Info */}
+      <div className="px-6 pb-8 bg-white dark:bg-stone-900 rounded-b-3xl border border-t-0 border-stone-200 dark:border-stone-800 shadow-sm mb-6 relative">
+        <div className="flex justify-between items-end -mt-16 md:-mt-20 mb-4 relative z-10">
+          <img 
+            src={currentUserData.photoURL} 
+            alt="Profile" 
+            className="w-28 h-28 md:w-36 md:h-36 rounded-full border-[6px] border-white dark:border-stone-900 bg-stone-100 dark:bg-stone-800 object-cover shadow-sm"
+          />
+          <button 
+            onClick={() => setEditing(!editing)}
+            className="border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 font-semibold text-sm px-6 py-2.5 rounded-full transition-colors mb-2"
+          >
+            {editing ? 'Cancel' : 'Edit Profile'}
+          </button>
+        </div>
+
+        <div>
+          <h1 className="text-3xl font-extrabold text-stone-900 dark:text-stone-100 tracking-tight">{currentUserData.displayName}</h1>
+          
+          {editing ? (
+            <div className="mt-6 space-y-4">
+               <input 
+                type="text"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full bg-[#FCFAF8] dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl p-3.5 text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all text-stone-900 dark:text-stone-100 placeholder-stone-400"
+                placeholder="Professional Title/Role..."
+              />
+              <textarea 
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                className="w-full bg-[#FCFAF8] dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl p-3.5 text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all min-h-[100px] text-stone-900 dark:text-stone-100 placeholder-stone-400"
+                placeholder="Tell the network about yourself..."
+              />
+              <button onClick={saveProfile} className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors">Save Changes</button>
+            </div>
+          ) : (
+            <>
+              <p className="text-stone-600 dark:text-stone-400 text-[16px] mt-1 font-medium">{currentUserData.role || 'Member'}</p>
+              <p className="mt-4 text-[15px] text-stone-800 dark:text-stone-200 leading-relaxed max-w-2xl">{currentUserData.bio}</p>
+            </>
+          )}
+
+          {/* User Skills */}
+          <div className="mt-8">
+            <h3 className="text-[12px] font-bold text-stone-400 dark:text-stone-500 mb-3 uppercase tracking-wider">Top Skills</h3>
+            <div className="flex flex-wrap gap-2.5">
+              {currentUserData.skills?.map(skill => (
+                <span key={skill} className="bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 px-4 py-2 rounded-xl text-[14px] font-medium text-orange-700 dark:text-orange-400 flex items-center gap-2 shadow-sm">
+                  {skill}
+                  {editing && (
+                    <button onClick={() => removeProfileSkill(skill)} className="text-red-500 hover:text-red-600 bg-white dark:bg-stone-900 rounded-full p-0.5"><X size={14}/></button>
+                  )}
+                </span>
+              ))}
+              {editing && (
+                <div className="flex items-center gap-2 bg-[#FCFAF8] dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl pr-2 shadow-sm">
+                  <input 
+                    type="text" 
+                    value={newSkill}
+                    onChange={(e)=>setNewSkill(e.target.value)}
+                    placeholder="Add skill..."
+                    className="bg-transparent text-[14px] text-stone-900 dark:text-stone-100 w-28 pl-4 py-2 outline-none placeholder-stone-400"
+                    onKeyDown={(e) => e.key === 'Enter' && addProfileSkill()}
+                  />
+                  <button onClick={addProfileSkill} className="text-orange-600 dark:text-orange-500 bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 p-1.5 rounded-lg mr-1 transition-colors"><Plus size={16}/></button>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex gap-8 mt-8 text-[15px] text-stone-500 dark:text-stone-400 border-t border-stone-100 dark:border-stone-800/80 pt-6">
+            <span><strong className="text-stone-900 dark:text-stone-100 text-xl font-extrabold mr-1.5">124</strong> Following</span>
+            <span><strong className="text-stone-900 dark:text-stone-100 text-xl font-extrabold mr-1.5">1.2k</strong> Followers</span>
+          </div>
+        </div>
+      </div>
+
+      {/* User's Posts */}
+      <div className="mt-4 space-y-6">
+        <h2 className="font-bold text-stone-900 dark:text-stone-100 text-lg flex items-center gap-2 px-2">
+           <Activity size={20} className="text-orange-600 dark:text-orange-500"/> Recent Activity
+        </h2>
+        {userPosts.length === 0 ? (
+          <div className="p-8 text-center text-stone-500 dark:text-stone-400 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800">No activity recorded yet.</div>
+        ) : (
+          userPosts.map(post => (
+            <PostCard key={post.id} post={post} user={user} usersInfo={usersInfo} />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ExploreView() {
+  const categories = [
+    { title: 'Frontend Architecture', tags: ['React', 'Vue', 'CSS', 'Tailwind'] },
+    { title: 'Backend Systems', tags: ['Node.js', 'Python', 'Go', 'Databases'] },
+    { title: 'Security & Auth', tags: ['Cryptography', 'OAuth', 'PenTesting'] },
+    { title: 'Cloud & DevOps', tags: ['AWS', 'Docker', 'Kubernetes', 'CI/CD'] },
+  ];
+
+  return (
+    <div className="min-h-screen">
+      <h2 className="text-2xl font-extrabold text-stone-900 dark:text-stone-100 mb-6 flex items-center gap-3">
+        <Compass size={28} className="text-orange-600 dark:text-orange-500"/> Explore Network
+      </h2>
+      <div className="grid gap-6">
+        {categories.map((cat, i) => (
+          <div key={i} className="bg-white dark:bg-stone-900 rounded-3xl p-6 border border-stone-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-shadow">
+            <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100 mb-4">{cat.title}</h3>
+            <div className="flex flex-wrap gap-3">
+              {cat.tags.map(tag => (
+                <button key={tag} className="px-5 py-2.5 bg-[#FCFAF8] dark:bg-stone-950 hover:bg-orange-50 dark:hover:bg-orange-500/10 text-stone-600 dark:text-stone-300 hover:text-orange-600 dark:hover:text-orange-400 rounded-xl font-medium text-[14px] transition-colors border border-stone-200 dark:border-stone-800 hover:border-orange-200 dark:hover:border-orange-500/50">
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
