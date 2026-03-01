@@ -1,116 +1,77 @@
-# 🚀 Clustr — Skill Bartering Network
+# Clustr — Learn & Teach Together
 
-**Clustr** is a skill-sharing platform that connects people who want to **learn new skills** with people who can **teach them** — using a **credit-based system instead of money**.
-
-A community-powered learning marketplace where knowledge is the currency. 💡
-
----
-
-## 🌟 Problem We Solve
-
-Learning new skills can be expensive and inaccessible.
-At the same time, millions of people have valuable skills they could teach.
-
-**Clustr bridges this gap.**
-
-Instead of paying money:
-
-* Earn **credits by teaching**
-* Spend **credits by learning**
-
-A fair, community-driven ecosystem.
-
----
-
-## ✨ Features
-
-* 🔐 User Authentication (Sign up / Login)
-* 👤 Profiles with skills to teach & learn
-* 🔍 Skill discovery & matching
-* 💬 Real-time messaging
-* 🎥 Video calling for live sessions
-* 💳 Credit-based learning system
-* 🤝 One-to-one skill exchange
-
----
-
-## 🧠 How the Credit System Works
-
-1. Teach a skill → Earn credits
-2. Use credits → Learn a skill
-3. No payments, no fees — just knowledge exchange.
-
----
-
-## 🛠️ Tech Stack
-
-### Frontend
-
-* HTML
-* CSS
-* JavaScript
-
-### Backend & Realtime
-
-* Firebase Authentication
-* Firebase Realtime Database
-* WebRTC (Video Calling)
-
----
+A skill-sharing social platform built with **React + Vite + Tailwind CSS**.
 
 ## 🚀 Getting Started
 
-### 1️⃣ Clone the repository
+```bash
+# 1. Install dependencies
+npm install
 
-```
-git clone https://github.com/sandeep0067/CLUSTR--BE-Project.git
+# 2. Start dev server
+npm run dev
 
-```
-
-### 2️⃣ Open project folder
-
-```
-cd clustr
+# 3. Build for production
+npm run build
 ```
 
-### 3️⃣ Add Firebase Config
+## 📁 Project Structure
 
-Create a Firebase project and replace credentials inside `firebase-config.js`.
+```
+clustr/
+├── public/
+│   └── favicon.svg
+├── src/
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── MainLayout.jsx     # Root layout with Outlet
+│   │   │   ├── Navbar.jsx         # Top sticky navbar
+│   │   │   ├── LeftSidebar.jsx    # Profile mini + nav links
+│   │   │   └── RightSidebar.jsx   # Messages, Events, Top Teachers
+│   │   ├── feed/
+│   │   │   ├── StoriesBar.jsx     # Horizontal stories row
+│   │   │   ├── Composer.jsx       # Post creation box
+│   │   │   ├── SortBar.jsx        # Feed filter tabs
+│   │   │   └── PostCard.jsx       # Individual post card
+│   │   └── shared/
+│   │       └── index.jsx          # VerifiedIcon, PostTypeBadge, Avatar, NavBadge
+│   ├── data/
+│   │   └── mockData.js            # All mock data (posts, users, messages, events)
+│   ├── hooks/
+│   │   └── usePosts.js            # useToggle, usePosts (like/save state)
+│   ├── pages/
+│   │   ├── FeedPage.jsx           # Main feed page
+│   │   ├── ProfilePage.jsx        # User profile page
+│   │   ├── ExplorePage.jsx        # Explore / discover page
+│   │   └── MessagesPage.jsx       # Messages page
+│   ├── App.jsx                    # Router setup
+│   ├── main.jsx                   # ReactDOM entry
+│   └── index.css                  # Tailwind directives + scrollbar styles
+├── index.html
+├── vite.config.js
+├── tailwind.config.js
+├── postcss.config.js
+└── package.json
+```
 
-### 4️⃣ Run the project
+## 🎨 Design System
 
-Open **index.html** in your browser.
+| Token         | Value              |
+|---------------|--------------------|
+| Font (body)   | Plus Jakarta Sans  |
+| Font (display)| Bricolage Grotesque|
+| Brand blue    | `#1A6BFF`          |
+| Background    | `#F4F2EE`          |
+| Card white    | `#FFFFFF`          |
+| Border        | `#E8E4DC`          |
+| Text          | `#1A1814`          |
+| Muted text    | `#6B6560`          |
 
----
+## ✨ Post Types
 
-## 🎯 Future Improvements
-
-* 🌐 Group learning sessions
-* 📱 Mobile app version
-* ⭐ Rating & review system
-* 🤖 AI skill recommendations
-* 🏆 Gamification & achievements
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome!
-Fork the repo and submit a pull request.
-
----
-
-## 📜 License
-
-This project is open-source and available under the **MIT License**.
-
----
-
-## 💙 Vision
-
-We believe knowledge should be **shared, not sold**.
-Clustr aims to build a world where learning is powered by **community and collaboration**.
-
----
-
-Made with ☕ and curiosity.
+| Type    | Badge                  | CTA button          |
+|---------|------------------------|---------------------|
+| query   | 🙋 Seeking to Learn    | 🎓 I Can Teach This |
+| teach   | 🎓 Available to Teach  | 🙋 I Want to Learn  |
+| discuss | 💬 Discussion           | Join Discussion     |
+| learn   | 📚 Want to Learn        | 🎓 I Can Teach This |
